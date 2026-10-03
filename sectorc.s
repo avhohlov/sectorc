@@ -12,7 +12,7 @@
 %define TOK_SEMI        11
 %define TOK_LPAREN      65528
 %define TOK_RPAREN      65529
-%define TOK_START       20697
+%define TOK_START       33977 ;20697 ;TODO Error?
 %define TOK_DEREF       64653
 %define TOK_WHILE_BEGIN 55810
 %define TOK_IF_BEGIN    6232
@@ -53,14 +53,36 @@
 ;;; cs: always 0x07c0
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-  jmp 0x07c0:entry
+; jmp 0x07c0:entry
+org    100H
 entry:
-  push 0x3000                   ; segment 0x3000 is used for fn symbol table
+; push 0x3000                   ; segment 0x3000 is used for fn symbol table
+; pop  ds
+; push 0x2000                   ; segment 0x2000 is used for codegen output buffer
+; pop  es
+
+  mov  dx, cs
+  add  dx, 4096
+  mov  es, dx
+  add  dx, 4096
+  mov  ds, dx
+
+  push ds
+  push cs
   pop  ds
-  push 0x2000                   ; segment 0x2000 is used for codegen output buffer
-  pop  es
+  mov  ah, 03DH
+  mov  al, 0
+  mov  dx, src
+  int  21H
+  mov  [hnd], ax
+  pop  ds
+
   xor di,di                     ; codegen index, zero'd
   ;; [fall-through]
+
+  mov  al, 233                  ; jmp
+  stosb
+  stosw                         ; reserved for ofs
 
   ;; main loop for parsing all decls
 compile:
@@ -88,12 +110,46 @@ compile_function:               ; parse and compile a function decl
   ;; [fall-through]
 
   ;; done compiling, execute the binary
+
+  push di                       ; patch
+  sub  ax, 3
+  mov  di, 1
+  stosw
+  pop  di
+
 execute:
-  push es                       ; push the codegen segment
-  push word [bx]                ; push the offset to "_start()"
-  push 0x4000                   ; load new segment for variable data
-  pop ds
-  retf                          ; jump into it via "retf"
+; push es                       ; push the codegen segment
+; push word [bx]                ; push the offset to "_start()"
+; push 0x4000                   ; load new segment for variable data
+; pop ds
+; retf                          ; jump into it via "retf"
+
+  push ds
+  push cs
+  pop  ds
+  mov  ah, 3EH
+  mov  bx, hnd
+  int  21H
+
+  mov  ah, 3CH
+  mov  cx, 00H
+  mov  dx, dst
+  int  21H
+  mov  bx, ax
+
+  mov  ah, 40H
+  mov  cx, di
+  push es
+  pop  ds
+  xor  dx, dx
+  int  21H
+
+  mov  ah, 3EH
+  int  21H
+
+  pop  ds
+  mov  ax, 4C00H
+  int  21H
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; compile statements (optionally advancing tokens beforehand)
@@ -382,12 +438,41 @@ getch:
   je getch_done                 ; if ';' return it
 
 getch_tryagain:
-  mov ax,0x0200
-  xor dx,dx
-  int 0x14                      ; get a char from serial (bios function)
+;;  mov ax,00200H
+;;  xor dx,dx
+;;  int 014H                      ; get a char from serial (bios function)
 
-  and ah,0x80                   ; check for failure and clear ah as a side-effect
-  jne getch_tryagain            ; failed, try again later
+    push ds
+    push cs
+    pop  ds
+
+    push bx
+    push cx
+    push dx
+
+    mov  ah, 03FH
+    mov  bx, [hnd]
+    mov  cx, 1
+    mov  dx, buf
+    int  21H
+
+    pop  dx
+    pop  cx
+    pop  bx
+
+    cmp  ax, 0
+    jne  _noteof
+    mov  ax,04C00H
+    int  21H
+
+_noteof:
+    mov  al, [buf]
+
+    pop  ds
+
+;;  and ah,080H                   ; check for failure and clear ah as a side-effect
+;;  jne getch_tryagain            ; failed, try again later
+  jc getch_tryagain
 
   cmp al,59                     ; check for ';'
   jne getch_done                ; if not ';' return it
@@ -421,5 +506,13 @@ binary_oper_tbl:
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; boot signature
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-  times 510-($-$$) db 0
-  db 0x55, 0xaa
+; times 510-($-$$) db 0
+; db 0x55, 0xaa
+src:
+  db 'c.c', 0
+dst:
+  db 'c.com', 0
+hnd:
+  resw 1
+buf:
+  resb 1
