@@ -154,7 +154,9 @@ _patch_back:
 _patch_fwd:
   mov ax,di                     ; compute relative fwd jump to this location: "dest - src"
   sub ax,si
-  mov es:[si-2],ax              ; patch "src - 2"
+; INFO nasm 2.14.02 report "invalid combination of opcode and operands"
+; mov es:[si-2],ax              ; patch "src - 2"
+  mov [es:si-2],ax
   jmp compile_stmts_tok_next    ; loop to compile next statement
 
 _control_flow_block:
