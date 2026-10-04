@@ -96,6 +96,7 @@ compile:
   jmp compile
 
 compile_function:               ; parse and compile a function decl
+  push di                       ; entry point
   call tok_next                 ; consume "void"
   push bx                       ; save function name token
   mov [bx],di                   ; record function address in symtbl
@@ -105,6 +106,7 @@ compile_function:               ; parse and compile a function decl
   stosb
 
   pop bx                        ; if the function is _start(), we're done
+  pop ax                        ; restore entry point
   cmp bx,TOK_START
   jne compile                   ; otherwise, loop and compile another declaration
   ;; [fall-through]
