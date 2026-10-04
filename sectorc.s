@@ -80,6 +80,9 @@ entry:
   xor di,di                     ; codegen index, zero'd
   ;; [fall-through]
 
+  mov  ax, 8192
+  mov [cs:dsz], ax              ; initial data size
+
   mov  al, 233                  ; jmp
   stosb
   stosw                         ; reserved for ofs
@@ -92,13 +95,26 @@ compile:
   ;; if "int" then skip a variable
   cmp ax,TOK_INT
   jne compile_function
-  call tok_next2                ; consume "int" and <ident>
+; call tok_next2                ; consume "int" and <ident>
+
+  call tok_next                 ; var name
+
+  mov  ax, [cs:dsz]
+  add  bx, bx                   ; TODO Move to get_tok?
+  mov  [bx], ax                 ; store var ofs
+  inc  ax
+  inc  ax
+  mov  [cs:dsz], ax             ; store new data size
+
+  call tok_next                 ; semicolon
+
   jmp compile
 
 compile_function:               ; parse and compile a function decl
   push di                       ; entry point
   call tok_next                 ; consume "void"
   push bx                       ; save function name token
+  add  bx, bx                   ; INFO/DICT Added for consistency with vars
   mov [bx],di                   ; record function address in symtbl
   call compile_stmts_tok_next2  ; compile function body
 
@@ -169,6 +185,8 @@ compile_stmts:
   je _not_call
   mov al,0xe8                   ; emit "call" instruction
   stosb
+
+  add bx, bx                    ; INFO/DICT Added for consistency with vars
 
   mov ax,[bx]                   ; load function offset from symbol-table
   sub ax,di                     ; compute relative to this location: "dest - cur - 2"
@@ -245,6 +263,7 @@ compile_assign:
   ;; [fall-through]
 
 compile_store_deref:
+                                ; FIXME/DICT Need fix
   mov bx,bp                     ; restore dest var token
   mov ax,0x0489                 ; code for "mov [si],ax"
   ;; [fall-through]
@@ -264,7 +283,18 @@ _not_deref_store:
 compile_store:
   mov bx,bp                     ; restore dest var token
   mov ax,0x0689                 ; code for "mov [imm],ax"
-  jmp emit_var                  ; [tail-call]
+; jmp emit_var                  ; [tail-call]
+
+                                ; INFO/DICT/jmp emit_var replacement
+  stosw                         ; emit
+  add bx,bx
+  mov bx , [bx]                 ; var ofs
+  ;; [fall-through]
+
+  mov ax,bx
+  stosw                         ; emit token value
+  jmp tok_next                  ; [tail-call]
+                                ; INFO/DICT/end
 
 save_var_and_compile_expr:
   mov bp,bx                     ; save dest to bp
@@ -297,6 +327,9 @@ _check_next:
 
 _found:
   lodsw                         ; load 16-bit of machine-code
+
+  pop  ds                       ; INFO/DICT Moved here to access to dict
+
   push ax                       ; save it to the stack
   mov al,0x50                   ; code for "push ax"
   stosb                         ; emit
@@ -320,7 +353,7 @@ emit_cmp_op:
 emit_op:
   mov ax,bx
   stosw                         ; emit machine code for op
-  pop ds
+; pop ds                        ; INFO/DICT Moved higher
   ret
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -335,6 +368,7 @@ compile_unary:
   jmp emit_common_ptr_op        ; [tail-call]
 
 _not_deref:
+                                ; TODO Wrong comment?
   cmp ax,TOK_LPAREN             ; check for "*(int*)"
   jne _not_paren
   call compile_expr_tok_next    ; consume "(" and compile expr
@@ -362,6 +396,7 @@ _not_int:
 emit_var:
   stosw                         ; emit
   add bx,bx                     ; bx = 2*bx (scale up for 16-bit)
+  mov bx, [bx]                  ; INFO/DICT var ofs
   ;; [fall-through]
 
 emit_tok:
@@ -514,6 +549,8 @@ src:
   db 'c.c', 0
 dst:
   db 'c.com', 0
+dsz:                            ; data size
+  resw 1
 hnd:
   resw 1
 buf:
