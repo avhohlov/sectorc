@@ -6,6 +6,7 @@
 ;;; atoi() calculation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 %define TOK_INT         6388
+%define TOK_INT_PTR     63874 ;INFO int*
 %define TOK_VOID        11386
 %define TOK_ASM         5631
 %define TOK_COMM        65532
@@ -14,6 +15,7 @@
 %define TOK_RPAREN      65529
 %define TOK_START       33977 ;20697 ;TODO Error?
 %define TOK_DEREF       64653
+%define TOK_RETURN      62198         
 %define TOK_WHILE_BEGIN 55810
 %define TOK_IF_BEGIN    6232
 %define TOK_BODY_BEGIN  5
@@ -205,6 +207,16 @@ _not_call:
   jmp compile_stmts_tok_next2   ; loop to compile next statement
 
 _not_asm:
+_not_asm:
+  cmp ax,TOK_RETURN             ; check for "return"
+  jne _not_ret
+  call compile_expr_tok_next
+  mov al,0xc3                   ; emit "ret" instruction
+  stosb
+  ret
+
+_not_ret:
+
   cmp ax,TOK_IF_BEGIN           ; check for "if"
   jne _not_if
   call _control_flow_block      ; compile control-flow block
