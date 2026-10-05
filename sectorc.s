@@ -93,11 +93,13 @@ compile:
   call tok_next
 
   ;; if "int" then skip a variable
-  cmp ax,TOK_INT
-  jne compile_function
+; cmp ax,TOK_INT
+; jne compile_function
 ; call tok_next2                ; consume "int" and <ident>
 
-  call tok_next                 ; var name
+  call tok_next                 ; object name
+  test dh, dh
+  jne  compile_function
 
   mov  ax, [cs:dsz]
   add  bx, bx                   ; TODO Move to get_tok?
@@ -112,7 +114,7 @@ compile:
 
 compile_function:               ; parse and compile a function decl
   push di                       ; entry point
-  call tok_next                 ; consume "void"
+; call tok_next                 ; consume "void"
   push bx                       ; save function name token
   add  bx, bx                   ; INFO/DICT Added for consistency with vars
   mov [bx],di                   ; record function address in symtbl
