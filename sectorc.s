@@ -17,7 +17,9 @@
 %define TOK_DEREF       64653
 %define TOK_RETURN      62198         
 %define TOK_WHILE_BEGIN 55810
+%define TOK_WHILE       51457
 %define TOK_IF_BEGIN    6232
+%define TOK_IF          624
 %define TOK_BODY_BEGIN  5
 %define TOK_BLK_BEGIN   75
 %define TOK_BLK_END     77
@@ -203,9 +205,18 @@ _not_call:
   cmp ax,TOK_ASM                ; check for "asm"
   jne _not_asm
 ; call tok_next                 ; tok_next to get literal byte
-  call tok_next2                ; tok_next2 to skip db and get literal byte
+  call tok_next                 ; skip db
+  mov  bx, 65532                ; comma
+  jmp  _chk_comma
+_db:
+  call tok_next                 ; tok_next to get literal byte
   stosb                         ; emit the literal
-  jmp compile_stmts_tok_next2   ; loop to compile next statement
+  call tok_next                 ; comma or semicolon
+_chk_comma:
+  cmp  bx, 65532
+  je   _db
+
+  jmp compile_stmts_tok_next    ; loop to compile next statement
 
 _not_asm:
   cmp ax,TOK_RETURN             ; check for "return"
@@ -216,13 +227,15 @@ _not_asm:
   jmp compile_stmts_tok_next
 
 _not_ret:
-  cmp ax,TOK_IF_BEGIN           ; check for "if"
+; cmp ax,TOK_IF_BEGIN           ; check for "if"
+  cmp ax,TOK_IF                 ; check for "if"
   jne _not_if
   call _control_flow_block      ; compile control-flow block
   jmp _patch_fwd                ; patch up forward jump of if-stmt
 
 _not_if:
-  cmp ax,TOK_WHILE_BEGIN        ; check for "while"
+; cmp ax,TOK_WHILE_BEGIN        ; check for "while"
+  cmp ax,TOK_WHILE              ; check for "while"
   jne _not_while
   push di                       ; save loop start location
   call _control_flow_block      ; compile control-flow block
@@ -249,6 +262,7 @@ _patch_fwd:
   jmp compile_stmts_tok_next    ; loop to compile next statement
 
 _control_flow_block:
+  call tok_next                 ; Opening round bracket must be separated
   call compile_expr_tok_next    ; compile loop or if condition expr
 
   ;; emit forward jump
@@ -259,7 +273,8 @@ _control_flow_block:
   stosw                         ; emit placeholder for target
 
   push di                       ; save forward patch location
-  call compile_stmts_tok_next   ; compile a block of statements
+; call compile_stmts_tok_next   ; compile a block of statements
+  call compile_stmts_tok_next2  ; compile a block of statements, curly bracket must be separated
   pop si                        ; restore forward patch location
 
 return:                         ; this label gives us a way to do conditional returns
