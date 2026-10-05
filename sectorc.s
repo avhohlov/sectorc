@@ -202,7 +202,8 @@ compile_stmts:
 _not_call:
   cmp ax,TOK_ASM                ; check for "asm"
   jne _not_asm
-  call tok_next                 ; tok_next to get literal byte
+; call tok_next                 ; tok_next to get literal byte
+  call tok_next2                ; tok_next2 to skip db and get literal byte
   stosb                         ; emit the literal
   jmp compile_stmts_tok_next2   ; loop to compile next statement
 
@@ -212,7 +213,7 @@ _not_asm:
   call compile_expr_tok_next
   mov al,0xc3                   ; emit "ret" instruction
   stosb
-  ret
+  jmp compile_stmts_tok_next
 
 _not_ret:
   cmp ax,TOK_IF_BEGIN           ; check for "if"
@@ -372,6 +373,21 @@ emit_op:
 ;;; compile unary
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 compile_unary:
+  test dh,dh                    ; if dh is 0, it's not a call
+  je _not_call_2
+  mov al,0xe8                   ; emit "call" instruction
+  stosb
+
+  add bx, bx                    ; INFO/DICT Added for consistency with vars
+
+  mov ax,[bx]                   ; load function offset from symbol-table
+  sub ax,di                     ; compute relative to this location: "dest - cur - 2"
+  sub ax,2
+  stosw                         ;  emit target
+
+  jmp tok_next
+
+_not_call_2:
   cmp ax,TOK_DEREF              ; check for "*(int*)"
   jne _not_deref
   ;; compile deref (load)
