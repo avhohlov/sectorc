@@ -207,7 +207,6 @@ _not_call:
   jmp compile_stmts_tok_next2   ; loop to compile next statement
 
 _not_asm:
-_not_asm:
   cmp ax,TOK_RETURN             ; check for "return"
   jne _not_ret
   call compile_expr_tok_next
@@ -216,7 +215,6 @@ _not_asm:
   ret
 
 _not_ret:
-
   cmp ax,TOK_IF_BEGIN           ; check for "if"
   jne _not_if
   call _control_flow_block      ; compile control-flow block
