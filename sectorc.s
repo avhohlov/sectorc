@@ -6,15 +6,15 @@
 ;;; atoi() calculation
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 %define TOK_INT         6388
-%define TOK_INT_PTR     63874 ;INFO int*
+%define TOK_INT_PTR     63874 ; INFO int*
 %define TOK_VOID        11386
 %define TOK_ASM         5631
 %define TOK_COMM        65532
 %define TOK_SEMI        11
 %define TOK_LPAREN      65528
 %define TOK_RPAREN      65529
-%define TOK_START       33977 ;20697 ;TODO Error?
-%define TOK_DEREF       64653
+%define TOK_START       33977 ; 20697 ; TODO Error?
+%define TOK_DEREF       65530 ; 64653
 %define TOK_RETURN      62198         
 %define TOK_WHILE_BEGIN 55810
 %define TOK_WHILE       51457
@@ -300,6 +300,10 @@ emit_common_ptr_op:
   push ax
   mov ax,0x368b                 ; emit "mov si,[imm]"
   call emit_var
+
+  mov ax, 0xf601                ; emit "add si, si" ; INFO Conversion from "in word" to "in byte"
+  stosw
+
   pop ax
   stosw                         ; emit
   ret
@@ -421,8 +425,18 @@ _not_paren:
   cmp ax,TOK_ADDR               ; check for "&"
   jne _not_addr
   call tok_next                 ; consume "&"
-  mov ax,0x068d                 ; code for "lea ax,[imm]"
-  jmp emit_var                  ; [tail-call] to emit code
+; mov ax,0x068d                 ; code for "lea ax,[imm]"
+; jmp emit_var                  ; [tail-call] to emit code
+
+  mov al,0xb8                   ; emit "mov ax,imm"
+  stosb
+
+  add bx, bx                    ; bx = 2*bx (scale up for 16-bit)
+  mov ax, [bx]                  ; INFO/DICT var ofs
+  shr ax, 1
+  stosw
+
+  jmp tok_next
 
 _not_addr:
   test dl,dl                    ; check for tok_is_num
