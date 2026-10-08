@@ -13,6 +13,7 @@
 %define TOK_SEMI        11
 %define TOK_LPAREN      65528
 %define TOK_RPAREN      65529
+%define TOK_LSQPAREN    43    ; INFO Opening square paren
 %define TOK_START       33977 ; 20697 ; TODO Error?
 %define TOK_DEREF       65530 ; 64653
 %define TOK_RETURN      62198         
@@ -105,14 +106,29 @@ compile:
   test dh, dh
   jne  compile_function
 
-  mov  ax, [cs:dsz]
-  add  bx, bx                   ; TODO Move to get_tok?
-  mov  [bx], ax                 ; store var ofs
-  inc  ax
-  inc  ax
-  mov  [cs:dsz], ax             ; store new data size
+  push bx
 
-  call tok_next                 ; semicolon
+  call tok_next
+  cmp  bx, TOK_LSQPAREN
+  mov  ax, 1
+  jne  _not_array
+  call tok_next
+  push ax
+  call tok_next2
+  pop  ax
+
+_not_array:
+  mov  dx, [cs:dsz]
+
+  pop  bx
+
+  add  bx, bx                   ; TODO Move to get_tok?
+  mov [bx], dx                  ; store var ofs
+  add  ax, ax
+  add  dx, ax
+  mov  [cs:dsz], dx             ; store new data size
+
+; call tok_next                 ; semicolon
 
   jmp compile
 
@@ -288,6 +304,9 @@ compile_assign:
   jne _not_deref_store
   call tok_next                 ; consume "*(int*)"
   call save_var_and_compile_expr ; compile rhs first
+
+                                ; TODO check ind
+  
   ;; [fall-through]
 
 compile_store_deref:
@@ -312,9 +331,22 @@ _not_deref_store:
   call save_var_and_compile_expr ; compile rhs first
   ;; [fall-through]
 
+  mov  ax, [cs:ind]
+  test ax, ax
+  mov ax,0x0689                 ; code for "mov [imm],ax"
+  je   compile_store
+
+  mov  al, 0x5b                 ; code for "pop  bx"
+  stosb
+
+  mov  ax, 0xdb03               ; code for "add  bx, bx"
+  stosw
+
+  mov ax, 0x8789                ; code for "mov [bx+imm], ax"
+
 compile_store:
   mov bx,bp                     ; restore dest var token
-  mov ax,0x0689                 ; code for "mov [imm],ax"
+; mov ax,0x0689                 ; code for "mov [imm],ax"
 ; jmp emit_var                  ; [tail-call]
 
                                 ; INFO/DICT/jmp emit_var replacement
@@ -331,6 +363,18 @@ compile_store:
 save_var_and_compile_expr:
   mov bp,bx                     ; save dest to bp
   call tok_next                 ; consume dest
+  sub ax, ax
+  cmp bx,TOK_LSQPAREN
+  jne store_simple_var
+  call compile_expr_tok_next    ; index
+  mov al, 0x50                  ; code for "push ax"
+  stosb
+
+  call tok_next                 ; assign operator
+  mov  ax, 1
+
+store_simple_var:
+  mov [cs:ind], ax
   ;; [fall-through]             ; fall-through will consume "=" before compiling expr
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -449,6 +493,43 @@ _not_int:
   ;; compile var
   mov ax,0x068b                 ; code for "mov ax,[imm]"
   ;; [fall-through]
+
+  push bx                       ; var
+
+  call tok_next
+  cmp ax, TOK_LSQPAREN         ; check for array element
+  jne load_simple_var
+
+  call compile_expr_tok_next    ; index
+  mov al, 0x93                  ; code for "xchg ax, bx"
+  stosb
+
+  mov ax, 0xdb03                ; code for "add  bx, bx"
+  stosw
+
+  call tok_next                 ; next token (after rparen)
+
+  mov ax,0x878b                 ; code for "mov ax,[bx+imm]"
+
+  jmp emit_var_or_elem
+
+load_simple_var:
+  mov ax,0x068b                 ; code for "mov ax,[imm]"
+  ;; [fall-through]
+
+emit_var_or_elem:
+  stosw                         ; emit
+
+  mov dx, bx                    ; next token
+  pop bx
+
+  add bx,bx                     ; bx = 2*bx (scale up for 16-bit)
+  mov ax, [bx]                  ; INFO/DICT var ofs
+  stosw
+
+  mov bx, dx
+  
+  ret
 
 emit_var:
   stosw                         ; emit
@@ -607,6 +688,8 @@ src:
 dst:
   db 'c.com', 0
 dsz:                            ; data size
+  resw 1
+ind:
   resw 1
 hnd:
   resw 1
