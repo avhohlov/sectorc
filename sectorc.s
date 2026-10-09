@@ -221,16 +221,26 @@ _not_call:
   cmp ax,TOK_ASM                ; check for "asm"
   jne _not_asm
 ; call tok_next                 ; tok_next to get literal byte
-  call tok_next                 ; skip db
+  call tok_next                 ; db/dw
+  cmp  bx, 591                  ; check for "dw"
+  jne  _db
+  call tok_next2                ; offset name
+  add  bx, bx
+  mov  ax, [bx]
+  stosw
+  call tok_next                 ; semicolon
+  jmp  compile_stmts_tok_next   ; loop to compile next statement
+  
+_db:
   mov  bx, 65532                ; comma
   jmp  _chk_comma
-_db:
+_db_loop:
   call tok_next                 ; tok_next to get literal byte
   stosb                         ; emit the literal
   call tok_next                 ; comma or semicolon
 _chk_comma:
   cmp  bx, 65532
-  je   _db
+  je   _db_loop
 
   jmp compile_stmts_tok_next    ; loop to compile next statement
 
