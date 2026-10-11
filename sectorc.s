@@ -294,8 +294,11 @@ _control_flow_block:
   ;; emit forward jump
   mov ax,0xc085                 ; emit "test ax,ax"
   stosw
-  mov ax,0x840f                 ; emit "je" instruction
+; mov ax,0x840f                 ; emit "je" instruction
+  mov ax,0x0375                 ; emit "jne $+3" instruction
   stosw
+  mov al,0xe9                   ; emit "jmp" instruction
+  stosb
   stosw                         ; emit placeholder for target
 
   push di                       ; save forward patch location
@@ -425,16 +428,27 @@ _found:
   stosw                         ; emit
 
   pop bx                        ; restore 16-bit of machine-code
-  cmp bh,0xc0                   ; detect the special case for comparison ops
+; cmp bh,0xc0                   ; detect the special case for comparison ops
+  cmp bh,0x01
   jne emit_op
 emit_cmp_op:
   mov ax,0xc839                 ; code for "cmp ax,cx"
   stosw                         ; emit
-  mov ax,0x00b8                 ; code for "mov ax,0x00"
-  stosw                         ; emit
-  mov ax,0x0f00                 ; code for the rest of imm and prefix for "setX" instrs
-  stosw                         ; emit
-  ;; [fall-through]
+; mov ax,0x00b8                 ; code for "mov ax,0x00"
+; stosw                         ; emit
+; mov ax,0x0f00                 ; code for the rest of imm and prefix for "setX" instrs
+; stosw                         ; emit
+  mov al, 0xb8                  ; code for "mov ax,0x0000"
+  stosb
+  sub ax, ax
+  stosw
+  mov ax,bx                     ; code for jxx
+  stosw
+  mov al, 0x40                  ; code for "inc ax"
+  stosb
+  ret
+
+; ;; [fall-through]
 
 emit_op:
   mov ax,bx
@@ -676,16 +690,22 @@ binary_oper_tbl:
   dw TOK_SUB,0xc12b             ; sub ax,cx
   dw TOK_MUL,0xe1f7             ; mul ax,cx
   dw TOK_AND,0xc123             ; and ax,cx
-  dw TOK_OR,0xc10b              ; or ax,cx
+  dw TOK_OR, 0xc10b             ; or ax,cx
   dw TOK_XOR,0xc133             ; xor ax,cx
   dw TOK_SHL,0xe0d3             ; shl ax,cx
   dw TOK_SHR,0xf8d3             ; shr ax,cx
-  dw TOK_EQ,0xc094              ; sete al
-  dw TOK_NE,0xc095              ; setne al
-  dw TOK_LT,0xc09c              ; setl al
-  dw TOK_GT,0xc09f              ; setg al
-  dw TOK_LE,0xc09e              ; setle al
-  dw TOK_GE,0xc09d              ; setge al
+; dw TOK_EQ, 0xc094             ; sete al
+  dw TOK_EQ, 0x0175             ; jne
+; dw TOK_NE, 0xc095             ; setne al
+  dw TOK_NE, 0x0174             ; je
+; dw TOK_LT, 0xc09c             ; setl al
+  dw TOK_LT, 0x017d             ; jge
+; dw TOK_GT, 0xc09f             ; setg al
+  dw TOK_GT, 0x017e             ; jle
+; dw TOK_LE, 0xc09e             ; setle al
+  dw TOK_LE, 0x017f             ; jg
+; dw TOK_GE, 0xc09d             ; setge al
+  dw TOK_GE, 0x017c             ; jl
   dw 0                          ; [sentinel]
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
