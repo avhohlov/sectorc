@@ -587,6 +587,16 @@ tok_next:
   cmp al,57
   setle dl                      ; tok_is_num = (al <= '9')
 
+  cmp  al,39
+  jne _nextch
+  call getch                    ; char
+  push ax
+  call getch                    ; quote
+  pop  ax
+  inc  dl
+  mov  bx, ax                   ; TODO remove?
+  ret
+
 _nextch:
   cmp al,32
   jle _done                     ; if char is space then break
