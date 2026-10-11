@@ -21,6 +21,7 @@
 %define TOK_WHILE       51457
 %define TOK_IF_BEGIN    6232
 %define TOK_IF          624
+%define TOK_ELSE        59723
 %define TOK_BODY_BEGIN  5
 %define TOK_BLK_BEGIN   75
 %define TOK_BLK_END     77
@@ -257,7 +258,40 @@ _not_ret:
   cmp ax,TOK_IF                 ; check for "if"
   jne _not_if
   call _control_flow_block      ; compile control-flow block
-  jmp _patch_fwd                ; patch up forward jump of if-stmt
+; jmp _patch_fwd                ; patch up forward jump of if-stmt
+
+  push si
+  call tok_next
+  pop  si
+  cmp  ax, TOK_ELSE
+  je  _else
+  push ax
+  mov  ax,di                    ; compute relative fwd jump to this location: "dest - src"
+  sub  ax,si
+; INFO nasm 2.14.02 report "invalid combination of opcode and operands"
+; mov  es:[si-2],ax             ; patch "src - 2"
+  mov [es:si-2],ax
+  pop  ax
+  jmp  compile_stmts
+
+_else:
+  mov al,0xe9                   ; emit "jmp" instruction
+  stosb
+  stosw                         ; emit placeholder for target
+
+  push di                       ; save forward patch location
+
+  mov ax,di                     ; compute relative fwd jump to this location: "dest - src"
+  sub ax,si
+; INFO nasm 2.14.02 report "invalid combination of opcode and operands"
+; mov es:[si-2],ax              ; patch "src - 2"
+  mov [es:si-2],ax
+
+  call compile_stmts_tok_next2
+
+  pop  si
+
+  jmp _patch_fwd
 
 _not_if:
 ; cmp ax,TOK_WHILE_BEGIN        ; check for "while"
