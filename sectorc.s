@@ -271,6 +271,7 @@ _not_ret:
 ; INFO nasm 2.14.02 report "invalid combination of opcode and operands"
 ; mov  es:[si-2],ax             ; patch "src - 2"
   mov [es:si-2],ax
+  mov  ax, 2345
   pop  ax
   jmp  compile_stmts
 
@@ -287,11 +288,38 @@ _else:
 ; mov es:[si-2],ax              ; patch "src - 2"
   mov [es:si-2],ax
 
-  call compile_stmts_tok_next2
+; call compile_stmts_tok_next2  ; INFO Error/Skip sub if
+
+  call tok_next                 ; "if" or "{"
+  cmp  ax,TOK_IF
+  je  _sub_if
+  call compile_stmts_tok_next   ; loop to compile next statement
+
+  pop  si
+  mov ax,di                     ; compute relative fwd jump to this location: "dest - src"
+  sub ax,si
+; INFO nasm 2.14.02 report "invalid combination of opcode and operands"
+; mov es:[si-2],ax              ; patch "src - 2"
+  mov [es:si-2],ax
+
+; jmp compile_stmts_tok_next
+  call compile_stmts_tok_next
+  ret
+
+_sub_if:
+  call compile_stmts
 
   pop  si
 
-  jmp _patch_fwd
+; jmp _patch_fwd
+
+  mov ax,di                     ; compute relative fwd jump to this location: "dest - src"
+  sub ax,si
+; INFO nasm 2.14.02 report "invalid combination of opcode and operands"
+; mov es:[si-2],ax              ; patch "src - 2"
+  mov [es:si-2],ax
+; jmp compile_stmts_tok_next    ; loop to compile next statement
+  jmp compile_stmts             ; loop to compile next statement
 
 _not_if:
 ; cmp ax,TOK_WHILE_BEGIN        ; check for "while"
