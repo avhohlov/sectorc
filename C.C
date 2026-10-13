@@ -6,17 +6,23 @@
 //
 // (C) Andrei V. Khokhlov
 
-char      Text  [  1024 ] ;
+// char   Text  [  1024 ] ;
+unsigned  Text  [  1024 ] ;
 unsigned pText ;
 unsigned nText ;
 unsigned nLine ;
 
-char      Code  [ 49152 ] ;
+// char   Code  [ 49152 ] ;
+unsigned  Code  [ 24576 ] ;
 unsigned nCode ;
+
+unsigned  src [ 2 ] ;
+unsigned  dst [ 3 ] ;
 
 unsigned hFile ;
 
-char      Heap  [  2048 ] ;
+// char   Heap  [  2048 ] ;
+unsigned  Heap  [  2048 ] ;
 unsigned pHeap ;
 unsigned nHeap ;
 
@@ -33,17 +39,17 @@ unsigned nName ;
 unsigned  Stk   [    32 ] ;
 unsigned pStk ;
 
-char      Buff  [   256 ] ;
+// char   Buff  [   256 ] ;
+unsigned  Buff  [   256 ] ;
 unsigned pBuff ;
+
 
 unsigned  open()
 {
   asm db       180 ,   61 ;               // asm db     0xB4 , 0x3D ;               // mov  AH, 0x3D
   asm db       176 ,    0 ;               // asm db     0xB0 , 0x00 ;               // mov  AL, 0
-// asm db      186 ,   72 ,  220 ;        // asm db     0xBA , 0x48 , 0xDC ;        // mov  DX, &Heap[62]
-  asm db       186 ;                      // asm db     0xBA ;                      // mov  DX, &Heap
-  asm dw       offset   Heap ;
-  asm db       131 ,  194 ,   62 ;        // asm db     0x83 , 0xC2 , 0x3E ;        // add  DX, 62
+  asm db       186 ;                      // asm db     0xBA ;                      // mov  DX, src
+  asm dw       offset   src ;
   asm db       205 ,   33 ;               // asm db     0xCD , 0x21 ;               // int  0x21
 }
 
@@ -63,12 +69,10 @@ unsigned  create()
 unsigned  read()
 {
   asm db       180 ,   63 ;               // asm db     0xB4 , 0x3F ;               // mov  AH, 0x3F
-// asm db      139 ,   30 ,    8 ,  220 ; // asm db     0x8B , 0x1E , 0x08 , 0xDC ; // mov  BX, hFile
-  asm db       139 ,   30 ;               // asm db     0x8B , 0x1E ;               // mov  BX, hFile         
+  asm db       139 ,   30 ;               // asm db     0x8B , 0x1E ;               // mov  DX, hFile
   asm dw       offset   hFile ;
   asm db       185 ,    0 ,    4 ;        // asm db     0xB9 , 0x00 , 0x04 ;        // mov  CX, 1024
-// asm db      186 ,    0 ,   24 ;        // asm db     0xBA , 0x00 , 0x18 ;        // mov  DX, &Text
-  asm db       186 ;                      // asm db     0xBA ;                      // mov  DX, &Text
+  asm db       186 ;                      // asm db     0xBA ;                      // mov  DX
   asm dw       offset   Text ;
   asm db       205 ,   33 ;               // asm db     0xCD , 0x21 ;               // int  0x21
 }
@@ -93,15 +97,14 @@ unsigned  write()
 unsigned  close()
 {
   asm db       180 ,   62 ;               // asm db     0xB4 , 0x3E ;               // mov  AH, 0x3E
-// asm db      139 ,   30 ,    8 ,  220 ; // asm db     0x8B , 0x1E , 0x08 , 0xDC ; // mov  BX, hFile
-  asm db       139 ,   30 ;               // asm db     0x8B , 0x1E ;               // mov  BX, hFile         
+  asm db       139 ,   30 ;               // asm db     0x8B , 0x1E ;               // mov  DX, hFile
   asm dw       offset   hFile ;
   asm db       205 ,   33 ;               // asm db     0xCD , 0x21 ;               // int  0x21
 }
 
 
-// char      Ch;                          // INFO Space omitted!
-char      Chr ;
+// char   Chr ;
+unsigned  Chr ;
 
 char      putchr()
 {
@@ -371,7 +374,10 @@ unsigned  val()
 }
 
 
-char      Look()
+unsigned pText0 ;
+unsigned pText1 ;
+
+unsigned  Look()
 {
   if ( pText >= nText )
   {
@@ -384,7 +390,14 @@ char      Look()
     return 0 ;
   }
 
-  return   Text [ pText ] ;
+  pText0 = pText &  1 ;
+  pText1 = pText >> 1 ;
+  if ( pText0 == 0 )
+  {
+    return  Text [ pText1 ] & 255 ;
+  }
+
+  return    Text [ pText1 ] >>  8 ;
 }
 
 
@@ -563,7 +576,8 @@ unsigned  Find()
 }
 
 
-char      C ;
+// char   C ;
+unsigned  C ;
 
 char      Emit1()
 {
@@ -576,9 +590,10 @@ unsigned  Emit2()
 {
 // FIXME
 // C = N % 256 ;
-  Emit1() ;
+// Emit1() ;
 // C = N / 256 ;
-  Emit1() ;
+// Emit1() ;
+  Stop() ;
 }
 
 
@@ -1094,9 +1109,11 @@ unsigned mFlag ;
 
 unsigned  Compile()
 {
-  C = 233 ;                               // 0xE9 // jmp  ?
+// C = 233 ;                              // 0xE9 // jmp  ?
+  C = 37097 ;                             // 0x90E9 // nop + jmp  ?
   Emit1() ;
-  nCode = nCode + 2 ;
+// nCode = nCode + 2 ;
+  nCode = nCode + 1 ;
 
   Scan() ;
 
@@ -1127,10 +1144,13 @@ unsigned  Compile()
     pHeap = 57 ;                          // main
     if ( Comp() == 0 )
     {
-      N          = nCode - 3 ;
+   // N          = nCode - 3 ;
+      N          = nCode + nCode ;
+      N          = N - 4 ;
    // FIXME
-   // Code [ 1 ] =  N %  256 ;
-   // Code [ 2 ] =  N /  256 ;
+   // Code [ 1 ] = N %  256 ;
+   // Code [ 2 ] = N /  256 ;
+      Code [ 1 ] = N ;
 
       mFlag   =  1 ;
     }
@@ -1153,17 +1173,19 @@ unsigned  Compile()
       Ofs  [ nName ] = nCode ;
       nName          = nName + 1 ;
 
-      Scan() ;                          // void
+   // Scan() ;                          // void
       Scan() ;                          // )
       Scan() ;                          // {
-      if ( Buff [ 0 ] !=  '{' )
-      {
-        Stop() ;
-      }
+   // FIXME Wrong code (call to out of range address)
+   // if ( Buff [ 0 ] !=  '{' )
+   // {
+   //   Stop() ;
+   // }
 
       Ctrl() ;
 
-      C = 195 ;                           // 0xC3 // retn
+   // C = 195 ;                           // 0xC3 // retn
+      C = 37059 ;                         // 0x90C3 // retn + nop
       Emit1() ;
     }
     else
@@ -1198,6 +1220,10 @@ unsigned  main()
 {
   Init() ;
 
+// src [ 0 ] = 11843 ; // C.
+  src [ 0 ] = 11842 ; // B.
+  src [ 1 ] =    67 ; // C\0
+
   hFile = open() ;
   pText = 0 ;
   nText = 0 ;
@@ -1206,6 +1232,11 @@ unsigned  main()
   Compile() ;
 
   close() ;
+
+// dst [ 0 ] = 11843 ; // C.
+  dst [ 0 ] = 11842 ; // B.
+  dst [ 1 ] = 20291 ; // CO
+  dst [ 2 ] =    77 ; // M\0
 
   hFile = create() ;
   write() ;
