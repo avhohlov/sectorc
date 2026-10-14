@@ -658,9 +658,12 @@ unsigned  Expr()
 {
   if      ( Const() == 0 )
   {
-    C = 184 ;                             // 0xB8 // mov  AX, Val
+ // C = 184 ;                             // 0xB8 // mov  AX, Val
+    C = 47248 ;                           // 0xB890 // nop + mov AX, Val
     Emit1() ;
-    Emit2() ;
+ // Emit2() ;
+    C = N ;
+    Emit1() ;    
   }
   else if ( Buff [ 0 ] == '(' )
   {
@@ -1002,7 +1005,8 @@ unsigned  Ctrl()
     Scan() ;
     Expr() ;
 
-    C = 195 ;                             // 0xC3 // retn
+  // C = 195 ;                          // 0xC3 // retn
+    C = 37059 ;                         // 0x90C3 // retn + nop
     Emit1() ;
 
     Scan() ;                            // !!!
@@ -1118,7 +1122,8 @@ unsigned mFlag ;
 unsigned  Compile()
 {
 // C = 233 ;                              // 0xE9 // jmp  ?
-  C = 37097 ;                             // 0x90E9 // nop + jmp  ?
+// C = 59972 ;                            // 0xE990 // nop + jmp // INFO Error
+  C = 59792 ;                             // 0xE990 // nop + jmp
   Emit1() ;
 // nCode = nCode + 2 ;
   nCode = nCode + 1 ;
@@ -1186,7 +1191,7 @@ unsigned  Compile()
       Scan() ;                          // {
    // FIXME Wrong code (call to out of range address)
    // if ( Buff [ 0 ] !=  '{' )
-   // if ( Buff [ 0 ] !=   123 )
+      if ( Buff [ 0 ] !=   123 )
       {
         Stop() ;
       }
@@ -1246,6 +1251,7 @@ unsigned  main()
   dst [ 2 ] =    77 ; // M\0
 
   hFile = create() ;
+  nCode = nCode + nCode ;
   write() ;
   close() ;
 }
