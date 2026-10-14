@@ -60,8 +60,7 @@ unsigned  create()
   asm db       185 ,    0 ,    0 ;        // asm db     0xB9 , 0x00 , 0x00 ;        // mov  AL, 0
 // asm db      186 ,   76 ,  220 ;        // asm db     0xBA , 0x4C , 0xDC ;        // mov  DX, &Heap[66]
   asm db       186 ;                      // asm db     0xBA ;                      // mov  DX, &Heap
-  asm dw       offset   Heap ;
-  asm db       131 ,  194 ,   66 ;        // asm db     0x83 , 0xC2 , 0x42 ;        // add  DX, 66
+  asm dw       offset   dst ;
   asm db       205 ,   33 ;               // asm db     0xCD , 0x21 ;               // int  0x21
 }
 
@@ -403,6 +402,9 @@ unsigned  Look()
 
 unsigned  Next()
 {
+  Chr   =  Look() ;
+  putchr() ;
+
   pText = pText + 1 ;
 }
 
@@ -537,6 +539,8 @@ char      Scan()
   }
 
   Buff [ pBuff ]  =  0 ;
+
+  return Buff [ 0 ] ;
 }
 
 
@@ -894,7 +898,9 @@ unsigned  Ctrl()
   {
     Scan() ;
     Ctrl() ;
-    while ( Buff [ 0 ] !=  '}' )
+ // FIXME Wrong code (call)
+ // while ( Buff [ 0 ] != '}' )
+    while ( Buff [ 0 ] !=  125 )
     {
       Ctrl() ;
     }
@@ -954,11 +960,11 @@ unsigned  Ctrl()
 
     Patch() ;
   }
-  else if ( I == 5 )                      // asm
+  else if ( I == 5 )                    // asm
   {
     Scan() ;                            // db
 
-    if ( Buff [ 1 ] == 'w' )              // dw
+    if ( Buff [ 1 ] == 'w' )            // dw
     {
       Scan() ;                          // offset
       Scan() ;
@@ -968,9 +974,11 @@ unsigned  Ctrl()
         Stop() ;
       }
 
-      N = Ofs [ I ] ;
+   // N = Ofs [ I ] ;
+      C = Ofs [ I ] ;
       Ofs [ I ] = nCode ;
-      Emit2() ;
+   // Emit2() ;
+      Emit1() ;
 
       Scan() ;                          // ;
     }
@@ -1178,9 +1186,10 @@ unsigned  Compile()
       Scan() ;                          // {
    // FIXME Wrong code (call to out of range address)
    // if ( Buff [ 0 ] !=  '{' )
-   // {
-   //   Stop() ;
-   // }
+   // if ( Buff [ 0 ] !=   123 )
+      {
+        Stop() ;
+      }
 
       Ctrl() ;
 
@@ -1220,8 +1229,7 @@ unsigned  main()
 {
   Init() ;
 
-// src [ 0 ] = 11843 ; // C.
-  src [ 0 ] = 11842 ; // B.
+  src [ 0 ] = 11843 ; // C.
   src [ 1 ] =    67 ; // C\0
 
   hFile = open() ;
@@ -1233,8 +1241,7 @@ unsigned  main()
 
   close() ;
 
-// dst [ 0 ] = 11843 ; // C.
-  dst [ 0 ] = 11842 ; // B.
+  dst [ 0 ] = 11843 ; // C.
   dst [ 1 ] = 20291 ; // CO
   dst [ 2 ] =    77 ; // M\0
 
