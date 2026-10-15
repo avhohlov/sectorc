@@ -257,22 +257,22 @@ _not_ret:
 ; cmp ax,TOK_IF_BEGIN           ; check for "if"
   cmp ax,TOK_IF                 ; check for "if"
   jne _not_if
+
+  mov [cs:stk], sp
+
+_if:
+  push word [cs:stk]
   call _control_flow_block      ; compile control-flow block
-; jmp _patch_fwd                ; patch up forward jump of if-stmt
+  pop  word [cs:stk]
 
   push si
   call tok_next
   pop  si
+
   cmp  ax, TOK_ELSE
   je  _else
-  push ax
-  mov  ax,di                    ; compute relative fwd jump to this location: "dest - src"
-  sub  ax,si
-; INFO nasm 2.14.02 report "invalid combination of opcode and operands"
-; mov  es:[si-2],ax             ; patch "src - 2"
-  mov [es:si-2],ax
-  mov  ax, 2345
-  pop  ax
+  push si
+  call multipatch
   jmp  compile_stmts
 
 _else:
@@ -288,38 +288,17 @@ _else:
 ; mov es:[si-2],ax              ; patch "src - 2"
   mov [es:si-2],ax
 
-; call compile_stmts_tok_next2  ; INFO Error/Skip sub if
-
   call tok_next                 ; "if" or "{"
   cmp  ax,TOK_IF
-  je  _sub_if
+  je  _if
+
+  push word [cs:stk]
   call compile_stmts_tok_next   ; loop to compile next statement
+  pop  word [cs:stk]
 
-  pop  si
-  mov ax,di                     ; compute relative fwd jump to this location: "dest - src"
-  sub ax,si
-; INFO nasm 2.14.02 report "invalid combination of opcode and operands"
-; mov es:[si-2],ax              ; patch "src - 2"
-  mov [es:si-2],ax
+  call multipatch
 
-; jmp compile_stmts_tok_next
-  call compile_stmts_tok_next
-  ret
-
-_sub_if:
-  call compile_stmts
-
-  pop  si
-
-; jmp _patch_fwd
-
-  mov ax,di                     ; compute relative fwd jump to this location: "dest - src"
-  sub ax,si
-; INFO nasm 2.14.02 report "invalid combination of opcode and operands"
-; mov es:[si-2],ax              ; patch "src - 2"
-  mov [es:si-2],ax
-; jmp compile_stmts_tok_next    ; loop to compile next statement
-  jmp compile_stmts             ; loop to compile next statement
+  jmp compile_stmts_tok_next
 
 _not_if:
 ; cmp ax,TOK_WHILE_BEGIN        ; check for "while"
@@ -370,6 +349,24 @@ _control_flow_block:
 
 return:                         ; this label gives us a way to do conditional returns
   ret                           ; (e.g. "jne return")
+
+multipatch:
+  pop  word [cs:tmp]
+_multipatch:
+  cmp  sp,[cs:stk]
+  jb  _do_patch
+  push word [cs:tmp]
+  ret
+
+_do_patch:
+  pop si
+  mov ax,di                     ; compute relative fwd jump to this location: "dest - src"
+  sub ax,si
+; INFO nasm 2.14.02 report "invalid combination of opcode and operands"
+; mov es:[si-2],ax              ; patch "src - 2"
+  mov [es:si-2],ax
+
+  jmp _multipatch
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; compile assignment statement
@@ -789,6 +786,10 @@ src:
   db 'c.c', 0
 dst:
   db 'c.com', 0
+stk:
+  resw 1
+tmp:
+  resw 1
 dsz:                            ; data size
   resw 1
 ind:
