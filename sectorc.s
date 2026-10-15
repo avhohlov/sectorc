@@ -1,5 +1,5 @@
   bits 16
-  cpu 386
+; cpu 386
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ;;; Token values as computed by the tokenizer's
@@ -272,8 +272,7 @@ _if:
   cmp  ax, TOK_ELSE
   je  _else
   push si
-  call multipatch
-  jmp  compile_stmts
+  jmp  multipatch
 
 _else:
   mov al,0xe9                   ; emit "jmp" instruction
@@ -296,9 +295,9 @@ _else:
   call compile_stmts_tok_next   ; loop to compile next statement
   pop  word [cs:stk]
 
-  call multipatch
+  call tok_next
 
-  jmp compile_stmts_tok_next
+  jmp  multipatch
 
 _not_if:
 ; cmp ax,TOK_WHILE_BEGIN        ; check for "while"
@@ -351,12 +350,10 @@ return:                         ; this label gives us a way to do conditional re
   ret                           ; (e.g. "jne return")
 
 multipatch:
-  pop  word [cs:tmp]
 _multipatch:
   cmp  sp,[cs:stk]
   jb  _do_patch
-  push word [cs:tmp]
-  ret
+  jmp  compile_stmts
 
 _do_patch:
   pop si
@@ -644,7 +641,11 @@ tok_next:
   xor cx,cx                     ; zero last-two chars reg
 
   cmp al,57
-  setle dl                      ; tok_is_num = (al <= '9')
+; setle dl                      ; tok_is_num = (al <= '9')
+  mov  dl,0
+  ja  _not_num
+  inc  dl
+_not_num:
 
   cmp  al,39
   jne _nextch
@@ -677,7 +678,11 @@ _done:
   cmp ax,0x2f2a                 ; check for multi-line comment "/*"
   je _comment_multi_line
   cmp ax,0x2829                 ; check for call parens "()"
-  sete dh
+; sete dh
+  mov  dh, 0
+  jne _not_call_3
+  inc  dh
+_not_call_3:
 
   mov ax,bx                     ; return token in ax also
   ret
@@ -787,8 +792,6 @@ src:
 dst:
   db 'c.com', 0
 stk:
-  resw 1
-tmp:
   resw 1
 dsz:                            ; data size
   resw 1
