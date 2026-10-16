@@ -13,7 +13,9 @@ unsigned nText ;
 unsigned nLine ;
 
 // char   Code  [ 49152 ] ;
-unsigned  Code  [ 24576 ] ;
+// INFO Out of memory
+// unsigned  Code  [ 24576 ] ;
+unsigned  Code  [ 20480 ] ;
 unsigned nCode ;
 
 unsigned  src [ 2 ] ;
@@ -131,7 +133,9 @@ unsigned  S ;
 unsigned  B ;
 unsigned  D ;
 unsigned  T ;
-unsigned  I ;
+// INFO I used as index in dictionary
+// unsigned  I ;
+unsigned  Q ;
 
 unsigned  div()
 {
@@ -139,18 +143,21 @@ unsigned  div()
   while ( A >= B )
   {
     T = B ;
-    I = 1 ;
+ // I = 1 ;
+    Q = 1 ; 
     S = A - T ;    
  // while ( A - T >= T )
     while ( S >= T )
     {
       T = T + T ;
-      I = I + I ;
+   // I = I + I ;
+      Q = Q + Q ;
       S = A - T ;
     }
 
     A = A - T ;
-    D = D + I ;
+ // D = D + I ;
+    D = D + Q ;
   }
 
   return D ;
@@ -287,7 +294,7 @@ unsigned  Init()
 }
 
 
-// unsigned  I ;
+unsigned  I ;
 
 unsigned  Push()
 {
@@ -319,7 +326,9 @@ unsigned  Stop()
  // TODO Use one div call
     A = nLine ;
     B = 10 ;
-    nLine = div(); 
+ // INFO Error
+ // nLine = div(); 
+    nLine = div() ;
   }
 
   while ( pStk != 0 )
@@ -929,7 +938,8 @@ unsigned  Cond()
   Push() ;
 
 // C = 233 ;                              // 0xE9 // jmp  ?
-  C =  59972 ;                            // 0xE990 // nop + jmp  ?
+// C = 59972 ;                            // 0xE990 // nop + jmp // INFO Error
+  C = 59792 ;                             // 0xE990 // nop + jmp
   Emit1() ;
 // nCode = nCode + 2 ;
   nCode = nCode + 1 ;
@@ -945,8 +955,11 @@ unsigned  Patch()
 // Code [ I + 2 ] = N / 256 ;
 
   N = nCode + nCode ;
-  N = nCode - I ;
-  N = nCode - I ;
+// INFO Error
+// N = nCode - I ;
+// N = nCode - I ;
+  N = N - I ;
+  N = N - I ;
   N = N - 4 ;
 
   Code  [ I + 1 ] = N ;
@@ -1185,10 +1198,15 @@ unsigned J1 ;
 unsigned  AssignOfs()
 {
   nData = nCode + nCode ;
-//nData = nCode +  256 ;                  // nData = ( ( ( nCode + 256 ) + 1023 ) / 1024 ) * 1024 ;
+// INFO Error (no space before nData...)
+// nData = nCode +  256 ;                  // nData = ( ( ( nCode + 256 ) + 1023 ) / 1024 ) * 1024 ;
   nData = nData +  256 ;
   nData = nData + 1023 ;
-  nData = nData / 1024 ;
+// INFO Error (no division)
+// nData = nData / 1024 ;
+  A = nData ;
+  B = 1024 ;
+  nData = div() ;
   nData = nData * 1024 ;
 
   I = 0 ;
@@ -1200,6 +1218,7 @@ unsigned  AssignOfs()
       while ( J != 0 )
       {
      // J1 = J + 1 ;
+     // TODO Why need adding of 256?
      // K  = Code [ J ]  + 256 ;
         K  = Code [ J ] ;
      // N  = Code [ J1 ] + 256 ;          // N = Code [ J + 1 ]  + 256 ;
