@@ -48,7 +48,7 @@ unsigned  open()
 {
   asm db       180 ,   61 ;               // asm db     0xB4 , 0x3D ;               // mov  AH, 0x3D
   asm db       176 ,    0 ;               // asm db     0xB0 , 0x00 ;               // mov  AL, 0
-  asm db       186 ;                      // asm db     0xBA ;                      // mov  DX, src
+  asm db       144 ,  186 ;               // asm db     0x90 , 0xBA ;               // nop + mov  DX, src
   asm dw       offset   src ;
   asm db       205 ,   33 ;               // asm db     0xCD , 0x21 ;               // int  0x21
 }
@@ -57,9 +57,12 @@ unsigned  open()
 unsigned  create()
 {
   asm db       180 ,   60 ;               // asm db     0xB4 , 0x3C ;               // mov  AH, 0x3C
-  asm db       185 ,    0 ,    0 ;        // asm db     0xB9 , 0x00 , 0x00 ;        // mov  AL, 0
-// asm db      186 ,   76 ,  220 ;        // asm db     0xBA , 0x4C , 0xDC ;        // mov  DX, &Heap[66]
-  asm db       186 ;                      // asm db     0xBA ;                      // mov  DX, &Heap
+// TODO Non-optimal code
+// asm db      185 ,    0 ,    0 ;        // asm db     0xB9 , 0x00 , 0x00 ;        // mov  AL, 0
+  asm db       176 ,    0 ;               // asm db     0xB0 , 0x00 ;               // mov  AL, 0
+// INFO Omitted
+  asm db       144 ,  185 ,    0 ,    0 ; // asm db     0x90 , 0xB9, 0x00, 0x00 ;   // nop + mov  CX, 0
+  asm db       144 ,  186 ;               // asm db     0x90 , 0xBA ;               // nop + mov  DX, dst
   asm dw       offset   dst ;
   asm db       205 ,   33 ;               // asm db     0xCD , 0x21 ;               // int  0x21
 }
@@ -70,8 +73,8 @@ unsigned  read()
   asm db       180 ,   63 ;               // asm db     0xB4 , 0x3F ;               // mov  AH, 0x3F
   asm db       139 ,   30 ;               // asm db     0x8B , 0x1E ;               // mov  DX, hFile
   asm dw       offset   hFile ;
-  asm db       185 ,    0 ,    4 ;        // asm db     0xB9 , 0x00 , 0x04 ;        // mov  CX, 1024
-  asm db       186 ;                      // asm db     0xBA ;                      // mov  DX
+  asm db       144 ,  185 ,    0 ,    4 ; // asm db     0x90 , 0xB9 , 0x00 , 0x04 ; // nop + mov  CX, 1024
+  asm db       144 ,  186 ;               // asm db     0x90 , 0xBA ;               // nop + mov  DX, Text
   asm dw       offset   Text ;
   asm db       205 ,   33 ;               // asm db     0xCD , 0x21 ;               // int  0x21
 }
@@ -81,13 +84,13 @@ unsigned  write()
 {
   asm db       180 ,   64 ;               // asm db     0xB4 , 0x40 ;               // mov  AH, 0x40
 // asm db      139 ,   30 ,    8 ,  220 ; // asm db     0x8B , 0x1E , 0x08 , 0xDC ; // mov  BX, hFile
-  asm db       139 ,   30 ;               // asm db     0x8B , 0x1E ;               // mov  BX, hFile         
+  asm db       139 ,   30 ;               // asm db     0x8B , 0x1E ;               // mov  BX, hFile
   asm dw       offset   hFile ;
 // asm db      139 ,   14 ,    6 ,  220 ; // asm db     0x8B , 0x0E , 0x06 , 0xDC ; // mov  CX, nCode
   asm db       139 ,   14 ;               // asm db     0x8B , 0x0E ;               // mov  CX, nCode
   asm dw       offset   nCode ;
 // asm db      186 ,    6 ,   28 ;        // asm db     0xBA , 0x06 , 0x1C ;        // mov  DX, &Code
-  asm db       186 ;                      // asm db     0xBA ;                      // mov  DX, &Code
+  asm db       144 ,  186 ;               // asm db     0x90 , 0xBA ;               // nop + mov  DX, &Code
   asm dw       offset   Code ;
   asm db       205 ,   33 ;               // asm db     0xCD , 0x21 ;               // int  0x21
 }
@@ -118,7 +121,7 @@ char      putchr()
 
 unsigned  halt()
 {
-  asm db       184 ,    0 ,   76 ;        // asm db     0xB8 , 0x00 , 0x4C ;        // mov  AX, 0x4C00
+  asm db       144 , 184 ,    0 ,   76 ;  // asm db     0x90 , 0xB8 , 0x00 , 0x4C ; // nop + mov  AX, 0x4C00
   asm db       205 ,   33 ;               // asm db     0xCD , 0x21 ;               // int  0x21
 }
 
@@ -390,13 +393,19 @@ unsigned  Look()
   }
 
   pText0 = pText &  1 ;
-  pText1 = pText >> 1 ;
+// pText1 = pText >> 1 ;
+  A = pText ;
+  B = 2 ;
+  pText1 = div() ;
   if ( pText0 == 0 )
   {
     return  Text [ pText1 ] & 255 ;
   }
 
-  return    Text [ pText1 ] >>  8 ;
+// return   Text [ pText1 ] >>  8 ;
+   A = Text [ pText1 ] ;
+   B = 256 ;
+   return   div() ;
 }
 
 
@@ -631,9 +640,11 @@ unsigned  Shl()
 {
   if ( Size [ Type [ I ] ] == 2 )
   {
-    C = 209 ;                             // 0xD1 // shl  BX, 1
-    Emit1() ;
-    C = 227 ;                             // 0xE3
+ // C = 209 ;                             // 0xD1 // shl  BX, 1
+ // Emit1() ;
+ // C = 227 ;                             // 0xE3
+ // Emit1() ;
+    C = 58321 ;
     Emit1() ;
   }
 }
@@ -641,16 +652,22 @@ unsigned  Shl()
 
 unsigned  Call()
 {
-  Scan() ;                              // (
-  Scan() ;                              // )
+  Scan() ;                                // (
+  Scan() ;                                // )
 
-  C = 232 ;                               // 0xE8 // call Ofs
-  N = nCode + 3 ;                         // N = ( 0xFFFF - ( ( nCode + 3 ) - Ofs [ I ] ) ) + 1 ;
+// C = 232 ;                              // 0xE8 // call Ofs
+  C = 59536 ;                             // 0xE890 // nop + call Ofs
+
+// N = nCode + 3 ;                        // N = ( 0xFFFF - ( ( nCode + 3 ) - Ofs [ I ] ) ) + 1 ;
+  N = nCode + 2;
   N = N - Ofs [ I ] ;
+  N = N + N ;
   N = 65535 - N ;
-  N = N + 1 ;
+// N = N + 1 ;
   Emit1() ;
-  Emit2() ;
+  C = N + 1 ;
+// Emit2() ;
+  Emit1() ;
 }
 
 
@@ -687,23 +704,28 @@ unsigned  Expr()
         Expr() ;
         I = Pop() ;
 
-        C = 147 ;                         // 0x93 // xchg BX, AX
+     // C = 147 ;                         // 0x93 // xchg BX, AX
+        C = 37776 ;                       // 0x9390 // nop + xchg BX, AX
         Emit1() ;
         Shl() ;
       }
 
-      C = 139 ;                           // 0x8B // mov  AX,  [ ( BX +  ) Ofs ]
+   // C = 139 ;                           // 0x8B // mov  AX,  [ ( BX +  ) Ofs ]
+      N = 139 ;
       if ( Size [ Type [ I ] ] == 1 )
       {
         C = 50 ;                          // 0x32 // xor  AH, AH
-        Emit1() ;
+     // Emit1() ;
         C = 228 ;                         // 0xE4
+     // Emit1() ;
+        C = 58418 ;
         Emit1() ;
 
-        C = 138 ;                         // 0x8A // mov  AL,  [ ( BX +  ) Ofs ]
+     // C = 138 ;                         // 0x8A // mov  AL,  [ ( BX +  ) Ofs ]
+        N = 138 ;
       }
 
-      Emit1() ;
+   // Emit1() ;
 
       C = 6 ;                             // 0x06 //  [ Ofs ]
       if ( Size [ I ]  != 1 )
@@ -711,11 +733,15 @@ unsigned  Expr()
         C = 135 ;                         // 0x87 //  [ BX + Ofs ]
       }
 
+      C = 256 * C ;
+      C = C + N ;
       Emit1() ;
 
-      N = Ofs [ I ] ;
+   // N = Ofs [ I ] ;
+      C = Ofs [ I ] ;
       Ofs [ I ] = nCode ;
-      Emit2() ;
+   // Emit2() ;
+      Emit1() ;
     }
     else if ( Cls [ I ] == 3 )
     {
@@ -736,24 +762,32 @@ unsigned  Expr()
   {
     I = 2 ;
   }
-  else if ( Buff [ 0 ] == '*' )
+  else if ( Buff [ 0 ] == '&' )
   {
     I = 3 ;
   }
+  else if ( Buff [ 0 ] == '*' )
+  {
+ // I = 3 ;
+    I = 4 ;
+  }
   else if ( Buff [ 0 ] == '/' )
   {
-    I = 4 ;
+ // I = 4 ;
+    I = 5 ;
   }
   else if ( Buff [ 0 ] == '%' )
   {
-    I = 5 ;
+ // I = 5 ;
+    I = 6 ;
   }
   else
   {
     return 0 ;
   }
 
-  C = 80 ;                                // 0x50 // push AX
+// C = 80 ;                               // 0x50 // push AX
+  C = 20624 ;                             // 0x5090 // nop + push AX
   Emit1() ;
 
   Push() ;
@@ -761,17 +795,20 @@ unsigned  Expr()
   Expr() ;
   I = Pop() ;
 
-  C = 91 ;                                // 0x5B // pop  BX
+// C = 91 ;                               // 0x5B // pop  BX
+  C = 23440 ;                             // 0x5B90 // nop + pop  BX
   Emit1() ;
 
-  C = 147 ;                               // 0x93 // xchg BX, AX
+// C = 147 ;                              // 0x93 // xchg BX, AX
+  C = 37776 ;                             // 0x9390 // nop + xchg BX, AX
   Emit1() ;
 
   if      ( I == 1 )
   {
-    C = 3 ;                               // 0x03 // add  AX, BX
-    Emit1() ;
-    C = 195 ;                             // 0xC3
+ // C = 3 ;                               // 0x03 // add  AX, BX
+ // Emit1() ;
+ // C = 195 ;                             // 0xC3
+    C = 49923 ;
     Emit1() ;
   }
   else if ( I == 2 )
@@ -779,16 +816,26 @@ unsigned  Expr()
  // C = 147 ;                             // 0x93 // xchg BX, AX
  // Emit1() ;
 
-    C = 43 ;                              // 0x2B // sub  AX, BX
-    Emit1() ;
-    C = 195 ;                             // 0xC3
+ // C = 43 ;                              // 0x2B // sub  AX, BX
+ // Emit1() ;
+ // C = 195 ;                             // 0xC3
+    C = 49963 ;
     Emit1() ;
   }
   else if ( I == 3 )
   {
-    C = 247 ;                             // 0xF7 // mul  BX
+ // C = 35 ;                              // 0x23 // and  AX, BX
+ // Emit1() ;
+ // C = 195 ;                             // 0xC3
+    C = 49955 ;
     Emit1() ;
-    C = 227 ;                             // 0xE3
+  }
+  else if ( I == 4 )
+  {
+ // C = 247 ;                             // 0xF7 // mul  BX
+ // Emit1() ;
+ // C = 227 ;                             // 0xE3
+    C = 58359 ;
     Emit1() ;
   }
   else
@@ -796,19 +843,23 @@ unsigned  Expr()
  // C = 147 ;                             // 0x93 // xchg BX, AX
  // Emit1() ;
 
-    C = 51 ;                              // 0x33 // xor  DX, DX
-    Emit1() ;
-    C = 210 ;                             // 0xD2
-    Emit1() ;
-
-    C = 247 ;                             // 0xF7 // div  BX
-    Emit1() ;
-    C = 243 ;                             // 0xF3
+ // C = 51 ;                              // 0x33 // xor  DX, DX
+ // Emit1() ;
+ // C = 210 ;                             // 0xD2
+    C = 53811 ;
     Emit1() ;
 
-    if ( I == 5 )
+ // C = 247 ;                             // 0xF7 // div  BX
+ // Emit1() ;
+ // C = 243 ;                             // 0xF3
+    C = 62455 ;
+    Emit1() ;
+
+ // if ( I == 5 )
+    if ( I == 6 )
     {
-      C = 146 ;                           // 0x92 // xchg DX, AX
+   // C = 146 ;                           // 0x92 // xchg DX, AX
+      C = 37520 ;                         // 0x9290 // nop + xchg DX, AX
       Emit1() ;
     }
   }
@@ -851,45 +902,60 @@ unsigned  Cond()
     Stop() ;
   }
 
-  C = 80 ;                                // 0x50 // push AX
+// C = 80 ;                               // 0x50 // push AX
+  C = 20624 ;                             // 0x5090 // nop + push AX
   Emit1() ;
 
   Scan() ;
   Expr() ;
 
-  C = 91 ;                                // 0x5B // pop  BX
+// C = 91 ;                               // 0x5B // pop  BX
+  C = 23440 ;                             // 0x5B90 // nop + pop  BX
   Emit1() ;
 
-  C = 59 ;                                // 0x3B // cmp  BX, AX
-  Emit1() ;
-  C = 216 ;                               // 0xD8
+// C = 59 ;                               // 0x3B // cmp  BX, AX
+// Emit1() ;
+// C = 216 ;                              // 0xD8
+  C = 55355 ;
   Emit1() ;
 
-  C = jCode ;                             // jxx  Ofs
-  Emit1() ;
-  C = 3 ;                                 // 0x03
+// C = jCode ;                            // jxx  Ofs
+// Emit1() ;
+// C = 3 ;                                // 0x03
+  C = 1024 + jCode ;                      // jxx $+4
   Emit1() ;
 
   I = nCode ;
   Push() ;
 
-  C = 233 ;                               // 0xE9 // jmp  ?
+// C = 233 ;                              // 0xE9 // jmp  ?
+  C =  59972 ;                            // 0xE990 // nop + jmp  ?
   Emit1() ;
-  nCode = nCode + 2 ;
+// nCode = nCode + 2 ;
+  nCode = nCode + 1 ;
 }
 
 
 unsigned  Patch()
 {
-  N = nCode - I ;                         // N = ( nCode - I ) - 3 ;
-  N = N - 3 ;
+// N = nCode - I ;                        // N = ( nCode - I ) - 3 ;
+// N = N - 3 ;
 
-// FIXME
-// Code [ I + 1 ]  = N % 256 ;
-// Code [ I + 2 ]  = N / 256 ;
+// Code [ I + 1 ] = N % 256 ;
+// Code [ I + 2 ] = N / 256 ;
+
+  N = nCode + nCode ;
+  N = nCode - I ;
+  N = nCode - I ;
+  N = N - 4 ;
+
+  Code  [ I + 1 ] = N ;
 }
 
 
+unsigned   W ;
+unsigned  wCnt ;
+ 
 unsigned  Ctrl()
 {
   I            =  Find() ;
@@ -921,15 +987,18 @@ unsigned  Ctrl()
     pHeap = 35 ;                          // else
     if ( Comp() == 0 )
     {
-      C = 233 ;                           // 0xE9 // jmp  ?
+   // C = 233 ;                           // 0xE9 // jmp  ?
+      C = 59792 ;                         // 0xE990 // nop + jmp  ?
       Emit1() ;
-      nCode = nCode + 2 ;
+   // nCode = nCode + 2 ;
+      nCode = nCode + 1 ;
 
       I = Pop() ;
 
       Patch() ;
 
-      I = nCode - 3 ;
+   // I = nCode - 3 ;
+      I = nCode - 2 ;
       Push() ;
 
       Scan() ;
@@ -953,13 +1022,22 @@ unsigned  Ctrl()
 
     I = Pop() ;
 
-    C = 233 ;                             // 0xE9 // jmp  Ofs
-    N = nCode + 3 ;                       // N = ( 0xFFFF - ( ( nCode + 3 ) - Pop() ) ) + 1 ;
+ // C = 233 ;                             // 0xE9 // jmp  Ofs
+    C = 59792 ;                           // 0xE990 // nop + jmp  ?
+ // N = nCode + 3 ;                       // N = ( 0xFFFF - ( ( nCode + 3 ) - Pop() ) ) + 1 ;
+ // N = N - Pop() ;
+ // N = 65535 - N ;
+ // N = N + 1 ;
+
+    N = nCode + 2 ;
     N = N - Pop() ;
+    N = N + N ;
     N = 65535 - N ;
-    N = N + 1 ;
+
     Emit1() ;
-    Emit2() ;
+    C = N + 1 ;
+ // Emit2() ;
+    Emit1() ;
 
     Patch() ;
   }
@@ -987,14 +1065,35 @@ unsigned  Ctrl()
     }
     else
     {
+   // W    = 0 ;
+      wCnt = 0 ;
       Buff [ 0 ]   =  ',' ;
       while ( Buff [ 0 ] == ',' )
       {
         Scan() ;
         C = val() ;                     // db   Val
-        Emit1() ;
+     // Emit1() ;
+     // wCnd = wCnt + 1 ;               // INFO Error
+        wCnt = wCnt + 1 ;
+        if   ( wCnt > 1 )
+        {
+          C    = C * 256 ;
+          C    = C + W;
+          Emit1() ;
+       // W    = 0 ;
+          wCnt = 0 ;
+        } 
+        else
+        {
+          W = C ;
+        }
 
         Scan() ;
+      }
+
+      if ( wCnt != 0 )
+      {
+        Stop() ;
       }
     }
 
@@ -1021,7 +1120,8 @@ unsigned  Ctrl()
       Scan() ;
       Expr() ;
 
-      C = 80 ;                            // 0x50 // push AX
+   // C = 80 ;                          // 0x50 // push AX
+      C = 20624 ;                       // 0x5090 // nop + push AX
       Emit1() ;
     }
 
@@ -1033,30 +1133,38 @@ unsigned  Ctrl()
 
     if ( Size [ I ]  != 1 )
     {
-      C = 91 ;                            // 0x5B // pop  BX
+   // C = 91 ;                          // 0x5B // pop  BX
+      C = 23440 ;                       // 0x5B90 // nop + pop  BX
       Emit1() ;
       Shl() ;
     }
 
-    C = 137 ;                             // 0x89 // mov  [ ( BX + ) Ofs ] , AX
+ // C = 137 ;                           // 0x89 // mov  [ ( BX + ) Ofs ] , AX
+    N = 137 ;
     if  ( Size [ Type [ I ] ] == 1 )
     {
-      C = 136 ;                           // 0x88 // mov  [ ( BX + ) Ofs ] , AL
+   // C = 136 ;                         // 0x88 // mov  [ ( BX + ) Ofs ] , AL
+      N = 136 ;
     }
 
-    Emit1() ;
+ // Emit1() ;
 
-    C = 6 ;                               // 0x06 //  [ Ofs ]
+    C = 6 ;                             // 0x06 //  [ Ofs ]
     if ( Size [ I ]  != 1 )
     {
-      C = 135 ;                           // 0x87 //  [ BX + Ofs ]
+      C = 135 ;                         // 0x87 //  [ BX + Ofs ]
     }
+
+    C = 256 * C ;
+    C = C + N ;
 
     Emit1() ;
 
-    N = Ofs [ I ] ;
+ // N = Ofs [ I ] ;
+    C = Ofs [ I ] ;
     Ofs   [ I ]  = nCode ;
-    Emit2() ;
+ // Emit2() ;
+    Emit1() ;
 
     Scan() ;                            // !!!
   }
@@ -1076,7 +1184,9 @@ unsigned J1 ;
 
 unsigned  AssignOfs()
 {
-  nData = nCode +  256 ;                  // nData = ( ( ( nCode + 256 ) + 1023 ) / 1024 ) * 1024 ;
+  nData = nCode + nCode ;
+//nData = nCode +  256 ;                  // nData = ( ( ( nCode + 256 ) + 1023 ) / 1024 ) * 1024 ;
+  nData = nData +  256 ;
   nData = nData + 1023 ;
   nData = nData / 1024 ;
   nData = nData * 1024 ;
@@ -1089,25 +1199,31 @@ unsigned  AssignOfs()
       J = Ofs  [ I ] ;
       while ( J != 0 )
       {
-        J1 = J + 1 ;
-        K  = Code [ J ]  + 256 ;
-        N  = Code [ J1 ] + 256 ;          // N = Code [ J + 1 ]  + 256 ;
+     // J1 = J + 1 ;
+     // K  = Code [ J ]  + 256 ;
+        K  = Code [ J ] ;
+     // N  = Code [ J1 ] + 256 ;          // N = Code [ J + 1 ]  + 256 ;
 
      // FIXME
      // Code [ J ]  = nData % 256 ;
+        Code [ J ]  = nData ;
      // Code [ J1 ] = nData / 256 ;       // Code [ J + 1 ]  = nData / 256 ;
 
      // FIXME
      // J = N % 256 ;                     // J = ( 256 * ( N % 256 ) ) + ( K % 256 ) ;
-        J = J * 256 ;
-     // K = K % 256 ;
-        J = J + K ;
+  // // J = J * 256 ;
+  // // K = K % 256 ;
+     // J = J + K ;
+        J = K ;
       }
 
       N = Size [ Type [ I ] ] * Size [ I ] ;
    // FIXME
    // while ( N % 2 != 0 )
-   //   N = N + 1 ;
+      if    ( N & 1 != 0 )
+      {
+        N = N + 1 ;
+      }
 
       nData = nData + N ;
     }
